@@ -15,7 +15,7 @@ interface SaveVoteData {
 export class VoteRepository {
 
     /**
-     * Creates a vote or updates the participant's existing vote.
+     * Creates a vote or updates an existing vote.
      */
     public async save(data: SaveVoteData) {
         const database = Database.getPool();
@@ -27,14 +27,25 @@ export class VoteRepository {
                 restaurant_id,
                 vote
             )
-            VALUES ($1, $2, $3, $4)
+            VALUES (
+                $1,
+                $2,
+                $3,
+                $4
+            )
             ON CONFLICT (
                 participant_id,
                 restaurant_id
             )
             DO UPDATE SET
                 vote = EXCLUDED.vote
-            RETURNING *;
+            RETURNING
+                id,
+                room_id AS "roomId",
+                participant_id AS "participantId",
+                restaurant_id AS "restaurantId",
+                vote,
+                created_at AS "createdAt";
         `;
 
         const values = [
@@ -44,7 +55,10 @@ export class VoteRepository {
             data.vote,
         ];
 
-        const result = await database.query(query, values);
+        const result = await database.query(
+            query,
+            values,
+        );
 
         return result.rows[0];
     }
@@ -60,11 +74,15 @@ export class VoteRepository {
             SELECT
                 restaurants.id AS "restaurantId",
                 restaurants.name AS restaurant,
+
                 COUNT(votes.id) FILTER (
                     WHERE votes.vote = TRUE
                 )::INTEGER AS "yesVotes",
-                COUNT(DISTINCT participants.id)::INTEGER
-                    AS participants,
+
+                COUNT(
+                    DISTINCT participants.id
+                )::INTEGER AS participants,
+
                 ROUND(
                     (
                         COUNT(votes.id) FILTER (
@@ -72,33 +90,56 @@ export class VoteRepository {
                         )::DECIMAL
                         /
                         NULLIF(
-                            COUNT(DISTINCT participants.id),
+                            COUNT(
+                                DISTINCT participants.id
+                            ),
                             0
                         )
                     ) * 100,
                     2
                 ) AS "matchPercentage"
+
             FROM restaurants
+
             INNER JOIN room_restaurants
-                ON restaurants.id = room_restaurants.restaurant_id
+                ON restaurants.id =
+                    room_restaurants.restaurant_id
+
             INNER JOIN rooms
-                ON rooms.id = room_restaurants.room_id
+                ON rooms.id =
+                    room_restaurants.room_id
+
             LEFT JOIN participants
-                ON participants.room_id = rooms.id
+                ON participants.room_id =
+                    rooms.id
+
             LEFT JOIN votes
-                ON votes.room_id = rooms.id
-                AND votes.restaurant_id = restaurants.id
-                AND votes.participant_id = participants.id
+                ON votes.room_id =
+                    rooms.id
+                AND votes.restaurant_id =
+                    restaurants.id
+                AND votes.participant_id =
+                    participants.id
+
             WHERE rooms.id = $1
-            GROUP BY restaurants.id, restaurants.name
-            ORDER BY "matchPercentage" DESC;
+
+            GROUP BY
+                restaurants.id,
+                restaurants.name
+
+            ORDER BY
+                "matchPercentage" DESC;
         `;
 
-        const result = await database.query(query, [roomId]);
+        const result = await database.query(
+            query,
+            [roomId],
+        );
 
         return result.rows.map((row) => ({
             ...row,
-            matchPercentage: Number(row.matchPercentage ?? 0),
+            matchPercentage:
+                Number(row.matchPercentage ?? 0),
         }));
     }
 }

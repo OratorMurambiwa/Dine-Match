@@ -23,8 +23,15 @@ export class ParticipantRepository {
                 room_id,
                 name
             )
-            VALUES ($1, $2)
-            RETURNING *;
+            VALUES (
+                $1,
+                $2
+            )
+            RETURNING
+                id,
+                room_id AS "roomId",
+                name,
+                created_at AS "createdAt";
         `;
 
         const values = [
@@ -32,7 +39,10 @@ export class ParticipantRepository {
             data.name,
         ];
 
-        const result = await database.query(query, values);
+        const result = await database.query(
+            query,
+            values,
+        );
 
         return result.rows[0];
     }
@@ -45,13 +55,20 @@ export class ParticipantRepository {
         const database = Database.getPool();
 
         const query = `
-            SELECT *
+            SELECT
+                id,
+                room_id AS "roomId",
+                name,
+                created_at AS "createdAt"
             FROM participants
             WHERE room_id = $1
             ORDER BY id;
         `;
 
-        const result = await database.query(query, [roomId]);
+        const result = await database.query(
+            query,
+            [roomId],
+        );
 
         return result.rows;
     }

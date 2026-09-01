@@ -35,8 +35,27 @@ export class RoomRepository {
                 max_price,
                 min_rating
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING *;
+            VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                $5,
+                $6,
+                $7,
+                $8
+            )
+            RETURNING
+                id,
+                code,
+                name,
+                location,
+                radius_miles AS "radiusMiles",
+                cuisine,
+                min_price AS "minPrice",
+                max_price AS "maxPrice",
+                min_rating AS "minRating",
+                created_at AS "createdAt";
         `;
 
         const values = [
@@ -50,7 +69,10 @@ export class RoomRepository {
             data.minRating ?? null,
         ];
 
-        const result = await database.query(query, values);
+        const result = await database.query(
+            query,
+            values,
+        );
 
         return result.rows[0];
     }
@@ -63,12 +85,25 @@ export class RoomRepository {
         const database = Database.getPool();
 
         const query = `
-            SELECT *
+            SELECT
+                id,
+                code,
+                name,
+                location,
+                radius_miles AS "radiusMiles",
+                cuisine,
+                min_price AS "minPrice",
+                max_price AS "maxPrice",
+                min_rating AS "minRating",
+                created_at AS "createdAt"
             FROM rooms
             WHERE code = $1;
         `;
 
-        const result = await database.query(query, [code]);
+        const result = await database.query(
+            query,
+            [code],
+        );
 
         return result.rows[0] ?? null;
     }

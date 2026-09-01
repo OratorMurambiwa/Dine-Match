@@ -35,7 +35,16 @@ export class RestaurantRepository {
                 longitude,
                 image_url
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                $5,
+                $6,
+                $7,
+                $8
+            )
             ON CONFLICT (external_id)
             DO UPDATE SET
                 name = EXCLUDED.name,
@@ -45,7 +54,16 @@ export class RestaurantRepository {
                 latitude = EXCLUDED.latitude,
                 longitude = EXCLUDED.longitude,
                 image_url = EXCLUDED.image_url
-            RETURNING *;
+            RETURNING
+                id,
+                external_id AS "externalId",
+                name,
+                address,
+                rating,
+                price_level AS "priceLevel",
+                latitude,
+                longitude,
+                image_url AS "imageUrl";
         `;
 
         const values = [
@@ -59,7 +77,10 @@ export class RestaurantRepository {
             data.imageUrl ?? null,
         ];
 
-        const result = await database.query(query, values);
+        const result = await database.query(
+            query,
+            values,
+        );
 
         return result.rows[0];
     }
@@ -72,15 +93,29 @@ export class RestaurantRepository {
         const database = Database.getPool();
 
         const query = `
-            SELECT restaurants.*
+            SELECT
+                restaurants.id,
+                restaurants.external_id AS "externalId",
+                restaurants.name,
+                restaurants.address,
+                restaurants.rating,
+                restaurants.price_level AS "priceLevel",
+                restaurants.latitude,
+                restaurants.longitude,
+                restaurants.image_url AS "imageUrl"
             FROM restaurants
             INNER JOIN room_restaurants
-                ON restaurants.id = room_restaurants.restaurant_id
+                ON restaurants.id =
+                    room_restaurants.restaurant_id
             WHERE room_restaurants.room_id = $1
-            ORDER BY restaurants.rating DESC NULLS LAST;
+            ORDER BY
+                restaurants.rating DESC NULLS LAST;
         `;
 
-        const result = await database.query(query, [roomId]);
+        const result = await database.query(
+            query,
+            [roomId],
+        );
 
         return result.rows;
     }
@@ -91,8 +126,8 @@ export class RestaurantRepository {
      */
     public async addToRoom(
         roomId: number,
-        restaurantId: number
-    ) {
+        restaurantId: number,
+    ): Promise<void> {
         const database = Database.getPool();
 
         const query = `
@@ -100,13 +135,19 @@ export class RestaurantRepository {
                 room_id,
                 restaurant_id
             )
-            VALUES ($1, $2)
+            VALUES (
+                $1,
+                $2
+            )
             ON CONFLICT DO NOTHING;
         `;
 
-        await database.query(query, [
-            roomId,
-            restaurantId,
-        ]);
+        await database.query(
+            query,
+            [
+                roomId,
+                restaurantId,
+            ],
+        );
     }
 }
