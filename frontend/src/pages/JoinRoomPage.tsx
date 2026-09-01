@@ -1,7 +1,10 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Header } from "../components/Header";
+import { RoomService } from "../services/RoomService";
+import { SessionService } from "../services/SessionService";
 
 
 /**
@@ -12,23 +15,47 @@ export function JoinRoomPage() {
 
     const [name, setName] = useState("");
     const [roomCode, setRoomCode] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+
 
     /**
-     * Handles the room joining form.
+     * Adds the participant to the requested room.
      */
-    function handleSubmit(event: FormEvent<HTMLFormElement>): void {
+    async function handleSubmit(
+        event: FormEvent<HTMLFormElement>,
+    ): Promise<void> {
         event.preventDefault();
 
         const code = roomCode.trim().toUpperCase();
 
-        console.log({
-            name,
-            roomCode: code,
-        });
+        try {
+            setLoading(true);
+            setError("");
 
-        // We will replace this with the real API request.
-        navigate(`/room/${code}`);
+            const roomService = new RoomService();
+            const sessionService = new SessionService();
+
+            const participant = await roomService.joinRoom(
+                code,
+                name,
+            );
+
+            sessionService.saveParticipant(
+                code,
+                participant,
+            );
+
+            navigate(`/room/${code}`);
+
+        } catch (error) {
+            setError("Could not join that room.");
+
+        } finally {
+            setLoading(false);
+        }
     }
+
 
     return (
         <main className="mx-auto min-h-screen max-w-xl px-6 py-12">
@@ -73,11 +100,20 @@ export function JoinRoomPage() {
                     />
                 </div>
 
+                {error && (
+                    <p className="text-sm text-red-600">
+                        {error}
+                    </p>
+                )}
+
                 <button
                     type="submit"
+                    disabled={loading}
                     className="w-full rounded-lg bg-black px-4 py-3 font-semibold text-white"
                 >
-                    Join Room
+                    {loading
+                        ? "Joining..."
+                        : "Join Room"}
                 </button>
             </form>
         </main>
