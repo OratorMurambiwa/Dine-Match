@@ -10,6 +10,10 @@ import {
     FoursquareRestaurantService,
 } from "./FoursquareRestaurantService";
 
+import {
+    MockRestaurantService,
+} from "./MockRestaurantService";
+
 
 /**
  * Handles restaurant results for a DineMatch room.
@@ -17,7 +21,7 @@ import {
 export class GetRestaurantsService {
 
     /**
-     * Gets saved restaurants or searches for new ones.
+     * Gets cached restaurants or searches for new ones.
      */
     public async run(code: string) {
         const roomRepository =
@@ -25,9 +29,6 @@ export class GetRestaurantsService {
 
         const restaurantRepository =
             new RestaurantRepository();
-
-        const foursquareRestaurantService =
-            new FoursquareRestaurantService();
 
         const room =
             await roomRepository.findByCode(code);
@@ -41,20 +42,37 @@ export class GetRestaurantsService {
                 room.id,
             );
 
-        // Reuse saved restaurants to avoid extra API calls.
+        // Reuse saved restaurants to avoid repeated API calls.
         if (savedRestaurants.length > 0) {
             return savedRestaurants;
         }
 
-        const restaurants =
-            await foursquareRestaurantService.search({
-                location: room.location,
-                radiusMiles: room.radiusMiles,
-                cuisine: room.cuisine,
-                minPrice: room.minPrice,
-                maxPrice: room.maxPrice,
-                minRating: room.minRating,
-            });
+        const useMockRestaurants =
+            process.env.USE_MOCK_RESTAURANTS === "true";
+
+        let restaurants;
+
+        if (useMockRestaurants) {
+            const mockRestaurantService =
+                new MockRestaurantService();
+
+            restaurants =
+                await mockRestaurantService.search();
+
+        } else {
+            const foursquareRestaurantService =
+                new FoursquareRestaurantService();
+
+            restaurants =
+                await foursquareRestaurantService.search({
+                    location: room.location,
+                    radiusMiles: room.radiusMiles,
+                    cuisine: room.cuisine,
+                    minPrice: room.minPrice,
+                    maxPrice: room.maxPrice,
+                    minRating: room.minRating,
+                });
+        }
 
         for (const restaurant of restaurants) {
             const savedRestaurant =
