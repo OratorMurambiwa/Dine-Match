@@ -10,6 +10,9 @@ interface SearchRestaurantsData {
 interface FoursquarePlace {
     fsq_place_id: string;
     name: string;
+    categories?: {
+        name: string;
+    }[];
     location?: {
         formatted_address?: string;
         address?: string;
@@ -50,14 +53,17 @@ export class FoursquareRestaurantService {
             throw new Error("Foursquare Service API Key is missing.");
         }
 
+        const cuisine = data.cuisine.trim();
+
         const parameters = new URLSearchParams({
-            query: `${data.cuisine.trim()} restaurant`,
+            query: cuisine,
             near: data.location,
-            sort: "DISTANCE",
+            sort: "RELEVANCE",
             limit: "20",
             fields: [
                 "fsq_place_id",
                 "name",
+                "categories",
                 "location",
                 "latitude",
                 "longitude",
@@ -91,9 +97,7 @@ export class FoursquareRestaurantService {
         const result = await response.json() as FoursquareResponse;
 
         if (!Array.isArray(result.results)) {
-            throw new Error(
-                "Foursquare returned an unexpected response.",
-            );
+            throw new Error("Foursquare returned an unexpected response.");
         }
 
         const radiusMeters = Math.round(data.radiusMiles * 1609.344);
@@ -102,6 +106,9 @@ export class FoursquareRestaurantService {
             .filter((place) =>
                 place.distance !== undefined &&
                 place.distance <= radiusMeters,
+            )
+            .filter((place) =>
+                this.matchesCuisine(place, cuisine),
             )
             .map((place) => ({
                 externalId: place.fsq_place_id,
@@ -112,6 +119,25 @@ export class FoursquareRestaurantService {
             }));
     }
 
+    private matchesCuisine(
+        place: FoursquarePlace,
+        cuisine: string,
+    ): boolean {
+        const selectedCuisine = cuisine
+            .toLowerCase()
+            .replace(/\s+restaurants?$/, "")
+            .trim();
+
+        return (place.categories ?? []).some((category) => {
+            const label = category.name.toLowerCase();
+
+            return (
+                label.includes("restaurant") &&
+                label.includes(selectedCuisine)
+            );
+        });
+    }
+
     private formatAddress(place: FoursquarePlace): string {
         const location = place.location;
 
@@ -119,15 +145,13 @@ export class FoursquareRestaurantService {
             return location.formatted_address;
         }
 
-        const address = [
+        return [
             location?.address,
             location?.locality,
             location?.region,
             location?.postcode,
         ]
             .filter(Boolean)
-            .join(", ");
-
-        return address || "Address unavailable";
+            .join(", ") || "Address unavailable";
     }
 }
