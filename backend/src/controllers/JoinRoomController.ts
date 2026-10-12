@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Server as SocketServer } from "socket.io";
 import { JoinRoomService } from "../services/JoinRoomService";
 
 export class JoinRoomController {
@@ -15,14 +16,16 @@ export class JoinRoomController {
                 name.trim().length > 100
             ) {
                 return res.status(400).json({
-                    message: "A room code and a name of 1–100 characters are required.",
+                    message:
+                        "A room code and a name of 1–100 characters are required.",
                 });
             }
 
+            const roomCode = code.trim().toUpperCase();
             const service = new JoinRoomService();
 
             const participant = await service.run({
-                code: code.trim().toUpperCase(),
+                code: roomCode,
                 name: name.trim(),
             });
 
@@ -31,6 +34,10 @@ export class JoinRoomController {
                     message: "Room not found.",
                 });
             }
+
+            const io: SocketServer = req.app.get("io");
+            io.to(roomCode).emit("participantUpdated");
+            io.to(roomCode).emit("resultsUpdated");
 
             return res.status(201).json(participant);
         } catch (error) {

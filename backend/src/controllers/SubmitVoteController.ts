@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Server as SocketServer } from "socket.io";
 import { SubmitVoteService } from "../services/SubmitVoteService";
 
 export class SubmitVoteController {
@@ -25,14 +26,18 @@ export class SubmitVoteController {
                 });
             }
 
+            const roomCode = code.trim().toUpperCase();
             const service = new SubmitVoteService();
 
             const savedVote = await service.run({
-                code: code.trim().toUpperCase(),
+                code: roomCode,
                 participantId,
                 restaurantId,
                 vote,
             });
+
+            const io: SocketServer = req.app.get("io");
+            io.to(roomCode).emit("resultsUpdated");
 
             return res.status(201).json(savedVote);
         } catch (error) {
