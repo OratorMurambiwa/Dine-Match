@@ -8,83 +8,71 @@ import { VoteService } from "../services/VoteService";
 
 import type { MatchResult } from "../types/MatchResult";
 
-
-/**
- * Displays live ranked restaurant results for a room.
- */
 export function ResultsPage() {
     const { code = "" } = useParams();
+    const roomCode = code.trim().toUpperCase();
 
     const [results, setResults] = useState<MatchResult[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-
-    /**
-     * Loads the newest ranked results from the backend.
-     */
     const loadResults = useCallback(async (): Promise<void> => {
         try {
-            const voteService = new VoteService();
-
-            const data = await voteService.getResults(code);
-
+            const data = await new VoteService().getResults(roomCode);
             setResults(data);
             setError("");
-
-        } catch (error) {
-            setError("Could not load results.");
-
+        } catch {
+            setError("Could not load results. Please try again.");
         } finally {
             setLoading(false);
         }
-    }, [code]);
+    }, [roomCode]);
 
-
-    /**
-     * Loads results and listens for live vote changes.
-     */
     useEffect(() => {
         const socketService = new SocketService();
 
-        socketService.joinRoom(code);
-        socketService.onResultsUpdated(loadResults);
+        socketService.onResultsUpdated(() => void loadResults());
+        socketService.onParticipantsUpdated(() => void loadResults());
+        socketService.joinRoom(roomCode);
 
-        loadResults();
+        setLoading(true);
+        void loadResults();
 
         return () => {
             socketService.disconnect();
         };
-    }, [code, loadResults]);
-
+    }, [roomCode, loadResults]);
 
     if (loading) {
-        return (
-            <p className="p-10 text-center">
-                Loading results...
-            </p>
-        );
+        return <p className="p-10 text-center">Loading results...</p>;
     }
-
 
     return (
         <main className="mx-auto min-h-screen max-w-xl px-6 py-10">
-            <RoomCodeCard roomCode={code} />
+            <RoomCodeCard roomCode={roomCode} />
 
             <div className="mt-10">
-                <h1 className="text-3xl font-bold">
-                    Your Matches
-                </h1>
-
+                <h1 className="text-3xl font-bold">Your Matches</h1>
                 <p className="mt-2 text-gray-600">
                     Restaurants ranked by group interest.
                 </p>
             </div>
 
             {error && (
-                <p className="mt-6 text-red-600">
-                    {error}
-                </p>
+                <div role="alert" className="mt-6 text-red-600">
+                    <p>{error}</p>
+                    <button
+                        type="button"
+                        onClick={() => void loadResults()}
+                        className="mt-2 underline"
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
+
+            {!error && results.length === 0 && (
+                <p className="mt-8">No restaurant results yet.</p>
             )}
 
             <div className="mt-8 space-y-4">
@@ -95,9 +83,7 @@ export function ResultsPage() {
                         restaurant={result.restaurant}
                         yesVotes={result.yesVotes}
                         participants={result.participants}
-                        matchPercentage={
-                            result.matchPercentage
-                        }
+                        matchPercentage={result.matchPercentage}
                     />
                 ))}
             </div>
