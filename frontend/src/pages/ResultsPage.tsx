@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { MatchResultCard } from "../components/MatchResultCard";
 import { RoomCodeCard } from "../components/RoomCodeCard";
+import { SessionService } from "../services/SessionService";
 import { SocketService } from "../services/SocketService";
 import { VoteService } from "../services/VoteService";
 
@@ -15,6 +16,8 @@ export function ResultsPage() {
     const [results, setResults] = useState<MatchResult[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    const participant = new SessionService().getParticipant(roomCode);
 
     const loadResults = useCallback(async (): Promise<void> => {
         try {
@@ -43,12 +46,29 @@ export function ResultsPage() {
         };
     }, [roomCode, loadResults]);
 
-    if (loading) {
-        return <p className="p-10 text-center">Loading results...</p>;
-    }
-
     return (
         <main className="mx-auto min-h-screen max-w-xl px-6 py-10">
+            <nav
+                aria-label="Results navigation"
+                className="mb-8 flex flex-wrap items-center justify-between gap-3"
+            >
+                <Link
+                    to="/"
+                    className="rounded-lg border px-4 py-2 font-medium"
+                >
+                    ← Home
+                </Link>
+
+                {participant && (
+                    <Link
+                        to={`/room/${roomCode}`}
+                        className="rounded-lg bg-black px-4 py-2 font-semibold text-white"
+                    >
+                        Change my votes
+                    </Link>
+                )}
+            </nav>
+
             <RoomCodeCard roomCode={roomCode} />
 
             <div className="mt-10">
@@ -56,7 +76,17 @@ export function ResultsPage() {
                 <p className="mt-2 text-gray-600">
                     Restaurants ranked by group interest.
                 </p>
+                <p className="mt-2 text-sm text-gray-500">
+                    Match percentages include everyone who has joined,
+                    even if they have not voted yet.
+                </p>
             </div>
+
+            {loading && (
+                <p role="status" className="mt-8">
+                    Loading results...
+                </p>
+            )}
 
             {error && (
                 <div role="alert" className="mt-6 text-red-600">
@@ -71,7 +101,7 @@ export function ResultsPage() {
                 </div>
             )}
 
-            {!error && results.length === 0 && (
+            {!loading && !error && results.length === 0 && (
                 <p className="mt-8">No restaurant results yet.</p>
             )}
 
