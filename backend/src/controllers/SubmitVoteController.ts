@@ -1,31 +1,23 @@
 import { Request, Response } from "express";
-
 import { SubmitVoteService } from "../services/SubmitVoteService";
 
-
-/**
- * Handles YES or NO votes for a restaurant.
- */
 export class SubmitVoteController {
-
-    /**
-     * Saves one participant's vote for one restaurant.
-     */
     public async handle(req: Request, res: Response): Promise<Response> {
         try {
             const { code } = req.params;
-
             const {
                 participantId,
                 restaurantId,
                 vote,
-            } = req.body;
+            } = req.body ?? {};
 
-            // Make sure all information needed for the vote exists.
             if (
-                !code ||
-                !participantId ||
-                !restaurantId ||
+                typeof code !== "string" ||
+                !code.trim() ||
+                !Number.isInteger(participantId) ||
+                participantId <= 0 ||
+                !Number.isInteger(restaurantId) ||
+                restaurantId <= 0 ||
                 typeof vote !== "boolean"
             ) {
                 return res.status(400).json({
@@ -33,19 +25,36 @@ export class SubmitVoteController {
                 });
             }
 
-            const submitVoteService = new SubmitVoteService();
+            const service = new SubmitVoteService();
 
-            const savedVote = await submitVoteService.run({
-                code,
+            const savedVote = await service.run({
+                code: code.trim().toUpperCase(),
                 participantId,
                 restaurantId,
                 vote,
             });
 
             return res.status(201).json(savedVote);
-
         } catch (error) {
-            // Return a general error if the vote could not be saved.
+            if (error instanceof Error) {
+                if (error.message === "Room not found.") {
+                    return res.status(404).json({
+                        message: error.message,
+                    });
+                }
+
+                if (
+                    error.message ===
+                    "Participant or restaurant does not belong to this room."
+                ) {
+                    return res.status(400).json({
+                        message: error.message,
+                    });
+                }
+            }
+
+            console.error("Could not save the vote:", error);
+
             return res.status(500).json({
                 message: "Could not save the vote.",
             });
